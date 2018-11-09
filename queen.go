@@ -64,12 +64,15 @@ func arrangeQueens(houses []int, pos int, num int) {
 	curPos := pos
 	//fmt.Println(pos, temp)
 	for i:=0;i<num;i++ {
+		//scan position, from 0~n-1, i is position candidate
 		if validate(houses, curPos, i) {
 			//if curPos >= num {
 			//	fmt.Println(curPos, num, len(houses))
 			//	break
 			//}
+			//ok, cur person lives in i position
 			houses[curPos] = i
+			//next person
 			curPos++
 			arrangeQueens(houses, curPos, num)
 		}
