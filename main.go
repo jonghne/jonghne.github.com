@@ -9,6 +9,21 @@ import (
 	"runtime"
 	"strconv"
 	"time"
+	"encoding/json"
+	"io/ioutil"
+	"path/filepath"
+	"chainstack-core/crypto"
+	"chainstack-core/p2p/discover"
+	"chainstack-core/common/util"
+	util2 "chainstack-core/common/util"
+	"math/big"
+	"chainstack-core/common"
+	"chainstack-core/common/consts"
+	"chainstack-core/core/chain-config"
+	"chainstack-core/core/chain"
+	"chainstack-core/core/chain/chaindb"
+	"chainstack-core/core/chain/state_processor"
+	"flag"
 )
 
 const (
@@ -172,7 +187,151 @@ func CheckNodeIsAlive(info time.Time) bool {
 	return now.Before(nodeReportLastTime)
 }
 
+type Animal struct {
+	Name  string
+	Order string
+	Pad   string
+}
+
+type genesisCfgFile struct {
+	Nonce uint64 `json:"nonce"`
+	Note string `json:"note"`
+	Accounts []string `json:"accounts"`
+	Balances []int64 `json:"balances"`
+	Timestamp string  `json:"timestamp"`
+	Difficulty string `json:"difficulty" gencodec:"required"`
+	Verifiers  []common.Address `json:"verifiers" gencodec:"required"`
+}
+
+func GenesisBlockFromFile(chainDB chaindb.Database, accountStateProcessor state_processor.AccountStateProcessor) *chain.Genesis {
+
+	ge, e := ioutil.ReadFile(filepath.Join(util2.HomeDir(), "softwares/chainstack_deploy/genesis.json"))
+	if e != nil {
+		return nil
+	}
+
+	var info genesisCfgFile
+	fmt.Printf("ge: %v\n", string(ge))
+	err := json.Unmarshal(ge, &info)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+	fmt.Printf("%+v\n", info)
+
+	var gTime time.Time
+	if gTime, err = time.Parse("2006-01-02 15:04:05", info.Timestamp); err != nil {
+		gTime, _ = time.Parse("2006-01-02 15:04:05", "2018-08-08 08:08:08")
+	}
+
+	alloc := make(map[common.Address]*big.Int)
+
+	addrLen := len(info.Accounts)
+	bLen := len(info.Balances)
+
+	if addrLen != bLen {
+		return nil
+	}
+	for i := range info.Accounts {
+		alloc[common.HexToAddress(info.Accounts[i])] = big.NewInt(info.Balances[i] * consts.CSK)
+	}
+
+	return &chain.Genesis{
+		//chainDB:               chainDB,
+		//accountStateProcessor: accountStateProcessor,
+		Config:                chain_config.GetChainConfig(),
+		Nonce:      info.Nonce,
+		Timestamp:  big.NewInt(gTime.UnixNano()),
+		ExtraData:  []byte(info.Note),
+		Difficulty: common.HexToDiff(info.Difficulty),
+		Alloc: alloc,
+		//verifiers: info.Verifiers,
+	}
+}
+
+var (
+	bootnodeIp = flag.String("ip", "127.0.0.1", "bootnode IP")
+)
 func main() {
+	jc := 2
+	jc1 := 3
+	switch {
+
+	case jc ==2 && jc1 == 3:
+		fmt.Println("2 conditions")
+	case jc == 2:
+		fmt.Println("jc==2")
+	}
+	//genbootnodeid
+	confB, e := ioutil.ReadFile(filepath.Join(util2.HomeDir(), "softwares/chainstack_deploy/bootnode_key"))
+	if e == nil {
+		fmt.Println(confB, string(confB))
+
+
+		flag.Parse()
+		fmt.Println("------", *bootnodeIp)
+		pk, _ := crypto.HexToECDSA(string(confB))
+		n := discover.PubKeyToNodeID(&pk.PublicKey)
+		fmt.Println(n.String())
+		idStr := n.String()
+		host := *bootnodeIp
+		ns := []string{}
+		ns = append(ns, fmt.Sprintf("enode://%v@%v:30301", idStr, host))
+		fmt.Println(ns)
+		// write boot node info to datadir
+		ioutil.WriteFile(filepath.Join(util2.HomeDir(), "softwares/chainstack_deploy/static_boot_nodes.json"), util.StringifyJsonToBytes(ns), 0755)
+	}
+	////////////////////////////////
+	//genesis
+	mg := GenesisBlockFromFile(nil, nil)
+	fmt.Printf("%v\n", mg)
+
+	gTime, _ := time.Parse("2006-01-02 15:04:05", "2018-08-08 08:08:08")
+	fmt.Println(big.NewInt(gTime.UnixNano()))
+	fmt.Println(common.HexToDiff("dead"))
+	//////////////////////
+	//generate account
+	nodeKey, _ := crypto.GenerateKey()
+	addr := crypto.GetNormalAddress(nodeKey.PublicKey)
+	fmt.Println(addr, addr.String(), addr[:])
+	fmt.Printf("%v %v %v\n",addr, addr.String(), addr.Str())
+
+	var jsonBlob = []byte(`[  
+    {"Name": "Platypus", "Order": "Monotremata", "pad":"jim"},  
+    {"Name": "Quoll",    "Order": "Dasyuromorphia"}  
+]`)
+
+	var animals []Animal
+	err := json.Unmarshal(jsonBlob, &animals)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+	fmt.Printf("%+v\n", animals)
+
+	node := []byte(`["enode://9fb88505dca8bbed224e03e9c0c27f724bf12551003576c79aae38307d8a4b68a88ad6afa38ae87a0aadaeea4940da2b859ffb0ce6b4b94252de1acc035d2396@14.17.65.122:30301"]`)
+	var nodesStr []string
+	err = json.Unmarshal(node, &nodesStr)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+	fmt.Println(nodesStr)
+
+	ml:=[]int{1,2,3,4,5,6,7,8,9,10}
+	fromV := reflect.ValueOf(ml)
+	tV := reflect.TypeOf(ml)
+	fmt.Println(tV, fromV.Index(4).Interface())
+
+	for j:=0;j<len(ml);j++ {
+		if i:=j%2;i==0 {
+			ml = append(ml[:j], ml[j+1:]...)
+		}
+	}
+	//for j:= range ml {
+	//	if i:=j%2;i==0 {
+	//		ml = append(ml[:j], ml[j+1:]...)
+	//	}
+	//}
+	fmt.Println(ml)
+
 	strinit := []string{"172.16.110.236"}
 	for i, v:= range strinit {
 		fmt.Println("str list ", i, v)
