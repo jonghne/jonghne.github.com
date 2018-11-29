@@ -24,6 +24,10 @@ import (
 	"chainstack-core/core/chain/chaindb"
 	"chainstack-core/core/chain/state_processor"
 	"flag"
+	"github.com/manifoldco/promptui"
+	"github.com/c-bata/go-prompt"
+	"strings"
+	"unicode"
 )
 
 const (
@@ -251,7 +255,219 @@ func GenesisBlockFromFile(chainDB chaindb.Database, accountStateProcessor state_
 var (
 	bootnodeIp = flag.String("ip", "127.0.0.1", "bootnode IP")
 )
+
+func emptyValidate(input string) error {
+	if len(input) == 0 {
+		return fmt.Errorf("Please provide a node name")
+	}
+
+	return nil
+}
+
+var PromptTemplate = &promptui.PromptTemplates{
+	Prompt: "{{ . }}:",
+	Valid:   `{{ "✔" | green }} {{ . }}: `,
+	Invalid: `{{ "✗" | red }} {{ . }}: `,
+	Success: `{{ "✔" | green }} {{ . | cyan}}: `,
+}
+
+func NodeName() (string, error) {
+
+	p := promptui.Prompt{
+		Label:     "Node Name",
+		Validate:  emptyValidate,
+		Templates: PromptTemplate,
+	}
+
+	return p.Run()
+}
+
+var optionHelp = []prompt.Suggest{
+	{Text: "-h"},
+	{Text: "--help"},
+}
+
+func callMethod(args []string, long bool) []prompt.Suggest {
+	l := len(args)
+	if l <= 2 {
+		if long {
+			return prompt.FilterHasPrefix(optionHelp, "--", false)
+		}
+		return optionHelp
+	}
+
+	var suggests []prompt.Suggest
+	suggests = methodFlags
+
+	if long {
+		return prompt.FilterContains(
+			prompt.FilterHasPrefix(suggests, "--", false),
+			strings.TrimLeft(args[l-1], "--"),
+			true,
+		)
+	}
+	return prompt.FilterContains(suggests, strings.TrimLeft(args[l-1], "-"), true)
+}
+
+var methodFlags = []prompt.Suggest{
+	{Text: "AddAccount", Description: ""},
+	{Text: "CloseWallet", Description: ""},
+	{Text: "CurrentBalance", Description: ""},
+	{Text: "CurrentBlock", Description: ""},
+	{Text: "CurrentStake", Description: ""},
+	{Text: "EstablishWallet", Description: ""},
+	{Text: "GetAddressNonceFromWallet", Description: ""},
+	{Text: "GetBlockByHash", Description: ""},
+	{Text: "GetBlockByNumber", Description: ""},
+	{Text: "GetCurVerifiers", Description: ""},
+	{Text: "GetDefaultAccountBalance", Description: ""},
+	{Text: "GetDefaultAccountStake", Description: ""},
+	{Text: "GetGenesis", Description: ""},
+	{Text: "GetNextVerifiers", Description: ""},
+	{Text: "GetTransactionNonce", Description: ""},
+	{Text: "GetVerifiersBySlot", Description: ""},
+	{Text: "ListWallet", Description: ""},
+	{Text: "ListWalletAccount", Description: ""},
+	{Text: "OpenWallet", Description: ""},
+	{Text: "RestoreWallet", Description: ""},
+	{Text: "SendCancelTransaction", Description: ""},
+	{Text: "SendCancelTx", Description: ""},
+	{Text: "SendElectTransaction", Description: ""},
+	{Text: "SendElectTx", Description: ""},
+	//{Text: "SendElectTxAndWaitResult", Description: ""},
+	{Text: "SendRegisterTransaction", Description: ""},
+	{Text: "SendRegisterTx", Description: ""},
+	{Text: "SendTransaction", Description: ""},
+	{Text: "SendTx", Description: ""},
+	{Text: "SetDefaultAccount", Description: ""},
+	{Text: "SetMineCoinBase", Description: ""},
+	{Text: "StartMine", Description: ""},
+	{Text: "StopMine", Description: ""},
+	{Text: "Transaction", Description: ""},
+}
+
+var nilSuggest []prompt.Suggest
+
+var rpcFlags = []prompt.Suggest{
+	{Text: "-m", Description: "指定要调用的cmd方法（该method一定要与rpc server的method方法相对应）"},
+	{Text: "-p", Description: "方法的参数"},
+}
+
+func optionCompleter(args []string, long bool) []prompt.Suggest {
+	l := len(args)
+	if l <= 1 {
+		if long {
+			return prompt.FilterHasPrefix(optionHelp, "--", false)
+		}
+		return optionHelp
+	}
+
+	var suggests []prompt.Suggest
+	commandArgs := excludeOptions(args)
+	switch commandArgs[0] {
+	case "rpc":
+		suggests = rpcFlags
+	}
+
+	if long {
+		return prompt.FilterContains(
+			prompt.FilterHasPrefix(suggests, "--", false),
+			strings.TrimLeft(args[l-1], "--"),
+			true,
+		)
+	}
+	return prompt.FilterContains(suggests, strings.TrimLeft(args[l-1], "-"), true)
+}
+
+var commands = []prompt.Suggest{
+	{Text: "rpc", Description: "调用请求rpc的方法"},
+	{Text: "exit", Description: "退出程序"},
+}
+
+func argumentsCompleter(args []string) []prompt.Suggest {
+	l := len(args)
+
+	if l <= 1 {
+		return prompt.FilterHasPrefix(commands, args[0], true)
+	}
+
+	first := args[0]
+
+	switch first {
+	case "rpc", "r":
+		if l == 2 {
+			second := args[1]
+			var subCommands []prompt.Suggest
+			return prompt.FilterHasPrefix(subCommands, second, true)
+		}
+	}
+
+	return nilSuggest
+}
+
+func excludeOptions(args []string) []string {
+	ret := make([]string, 0, len(args))
+	for i := range args {
+		if !strings.HasPrefix(args[i], "-") {
+			ret = append(ret, args[i])
+		}
+	}
+	return ret
+}
+
+func ChainstackCliCompleter(d prompt.Document) []prompt.Suggest {
+	if d.TextBeforeCursor() == "" {
+		return nilSuggest
+	}
+
+	args := strings.Split(d.TextBeforeCursor(), " ")
+	w := d.GetWordBeforeCursor()
+	if strings.HasPrefix(w, "-") {
+		return optionCompleter(args, strings.HasPrefix(w, "--"))
+	}
+
+	for i, r := range w {
+		if i == 0 {
+			if unicode.IsUpper(r) {
+				return callMethod(args, strings.HasPrefix(w, "--"))
+			}
+		}
+	}
+
+	return argumentsCompleter(excludeOptions(args))
+}
+
+func executor() prompt.Executor {
+	return func(command string) {
+		if command == "" {
+			return
+		} else if command == "exit" {
+			panic("force")
+		}else {
+			fmt.Println(command)
+		}
+	}
+}
+
+func runPad(executor prompt.Executor, completer prompt.Completer) {
+	p := prompt.New(
+		executor,
+		completer,
+		prompt.OptionPrefix("> "),
+		prompt.OptionTitle("Chainstack"),
+		prompt.OptionPrefixTextColor(prompt.Yellow),
+		prompt.OptionPreviewSuggestionTextColor(prompt.Blue),
+		prompt.OptionSelectedSuggestionBGColor(prompt.LightGray),
+		prompt.OptionSuggestionBGColor(prompt.DarkGray),
+	)
+	p.Run()
+}
+
 func main() {
+	NodeName()
+
+	runPad(executor(), ChainstackCliCompleter)
+
 	jc := 2
 	jc1 := 3
 	switch {
