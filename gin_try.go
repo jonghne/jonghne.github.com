@@ -8,12 +8,66 @@ import (
 	"io"
 )
 
+func Dummy1Middleware(c *gin.Context) {
+
+	fmt.Println("Im a dummy1111!")
+
+	// Pass on to the next-in-chain
+
+	c.Next()
+	fmt.Println("exit dummy 1")
+
+}
+
+func Dummy2Middleware(c *gin.Context) {
+
+	fmt.Println("Im a dummy2222!")
+
+	// Pass on to the next-in-chain
+
+	c.Next()
+	fmt.Println("exit dummy 2")
+}
+
+
+func Dummy3Middleware() gin.HandlerFunc {
+
+	fmt.Println("Im a dummy333!")
+
+	// Pass on to the next-in-chain
+
+	return func(c *gin.Context) {
+
+		c.Next()
+
+	}
+
+}
+
+func Dummy4Middleware() gin.HandlerFunc {
+
+	fmt.Println("Im a dummy444!")
+
+	// Pass on to the next-in-chain
+
+	return func(c *gin.Context) {
+
+		c.Next()
+
+	}
+
+}
+
 func start() {
 	router := gin.Default()
 	router.NoRoute(func(c *gin.Context) {
 		c.IndentedJSON(http.StatusNotFound, nil)
 	})
 
+	router.Use(Dummy1Middleware)
+	router.Use(Dummy2Middleware)
+	//router.Use(Dummy3Middleware())
+	//router.Use(Dummy4Middleware())
 	router.GET("/welcome", func(c *gin.Context) {
 		firstname := c.DefaultQuery("firstname", "Guest")
 		lastname := c.Query("lastname")
