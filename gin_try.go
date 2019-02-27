@@ -69,10 +69,22 @@ func start() {
 	//router.Use(Dummy3Middleware())
 	//router.Use(Dummy4Middleware())
 	router.GET("/welcome", func(c *gin.Context) {
+		fmt.Println(c.Request.Host, c.Request.URL.Path)
+		//firstname := c.DefaultQuery("firstname", "Guest")
+		//lastname := c.Query("lastname")
+		//c.String(http.StatusOK, "Hello %s %s", firstname, lastname)
+
+		target := c.Request.Host+"/rewel"
+		fmt.Println("redirect", target)
+		c.Redirect(http.StatusFound, target)
+		fmt.Println("exit welcome")
+	})
+
+	router.GET("/rewel", func(c *gin.Context) {
 		firstname := c.DefaultQuery("firstname", "Guest")
 		lastname := c.Query("lastname")
-
-		c.String(http.StatusOK, "Hello %s %s", firstname, lastname)
+		fmt.Println("in rewel")
+		c.String(http.StatusOK, "Hi %s %s", firstname, lastname)
 	})
 
 	router.GET("/shou/:firstname/:lastname", func(c *gin.Context) {

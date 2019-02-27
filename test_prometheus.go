@@ -28,6 +28,12 @@ func main (){
 	)
 	prometheus.MustRegister(diskPercent)
 
+	counter := prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "test_counter",
+		Help: "tracting counter",
+	})
+	prometheus.MustRegister(counter)
+
 	// 启动web服务，监听1010端口
 	go func() {
 		logger.Println("ListenAndServe at:localhost:1010")
@@ -47,6 +53,8 @@ func main (){
 		usedPercent := v.UsedPercent
 		logger.Println("get memeory use percent:", usedPercent)
 		diskPercent.WithLabelValues("usedMemory").Set(usedPercent)
+
+		counter.Add(1)
 		time.Sleep(time.Second*2)
 	}
 }

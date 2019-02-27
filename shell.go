@@ -8,6 +8,10 @@ import (
 	"io"
 	"strings"
 	"time"
+	"io/ioutil"
+	"path/filepath"
+	"chainstack-core/common/util"
+	"runtime"
 )
 
 //阻塞式的执行外部shell命令的函数,等待执行完毕并返回标准输出
@@ -93,6 +97,30 @@ func checkErr(err error) {
 }
 
 func main() {
-	execCommand("ls", []string{"-al"})
-	exec_shell_no_result("ls,-la")
+	//execCommand("ls", []string{"-al"})
+	//exec_shell_no_result("ls,-la")
+
+	_, e := ioutil.ReadFile(filepath.Join("/home/qydev/idtest"))
+	fmt.Println(e)
+
+	id := util.StringifyJsonToBytes([]interface{}{"0x2432424", "0x325252a"})
+
+	ioutil.WriteFile(filepath.Join("/home/qydev/idtest"), id, 0644)
+
+	conf, e := ioutil.ReadFile(filepath.Join("/home/qydev/idtest"))
+
+	if e == nil {
+		var str []string
+		err := util.ParseJsonFromBytes(conf, &str)
+		if err == nil {
+			fmt.Println(str)
+		} else {
+			fmt.Println(err)
+		}
+	}
+	var stat runtime.MemStats
+	runtime.ReadMemStats(&stat)
+	fmt.Println(runtime.NumGoroutine(), stat)
+	var s string = "sljflsd"
+	fmt.Println(s)
 }
